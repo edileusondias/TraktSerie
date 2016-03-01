@@ -43,7 +43,7 @@ public class ImageAdapter extends BaseAdapter {
 
     @Override
     public View getView(final int position, View convertView, ViewGroup parent) {
-        GridAdapter rowGrid = new GridAdapter();
+        GridItem rowGrid = new GridItem();
         View rowView;
 
         rowView = inflater.inflate(R.layout.gridlayout, null);

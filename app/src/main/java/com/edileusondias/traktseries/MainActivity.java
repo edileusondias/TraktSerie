@@ -1,7 +1,13 @@
 package com.edileusondias.traktseries;
 
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.net.ConnectivityManager;
 import android.net.Uri;
-import android.os.Bundle;
+import android.provider.Settings;
+import android.support.v7.app.ActionBar;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 import android.widget.GridView;
@@ -10,12 +16,11 @@ import android.widget.Toast;
 
 import com.android.volley.AuthFailureError;
 import com.android.volley.Request;
-import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonArrayRequest;
-import com.android.volley.toolbox.Volley;
 import com.edileusondias.traktseries.adapters.ImageAdapter;
+import com.edileusondias.traktseries.controllers.Singleton;
 import com.edileusondias.traktseries.model.Series;
 import com.google.android.gms.appindexing.Action;
 import com.google.android.gms.appindexing.AppIndex;
@@ -23,42 +28,81 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
+import org.androidannotations.annotations.AfterViews;
+import org.androidannotations.annotations.Background;
+import org.androidannotations.annotations.EActivity;
+import org.androidannotations.annotations.OnActivityResult;
+import org.androidannotations.annotations.UiThread;
+import org.androidannotations.annotations.ViewById;
 import org.json.JSONArray;
 
 import java.lang.reflect.Type;
 import java.util.HashMap;
 import java.util.Map;
 
+@EActivity(R.layout.activity_main)
 public class MainActivity extends AppCompatActivity {
     /**
      * ATTENTION: This was auto-generated to implement the App Indexing API.
      * See https://g.co/AppIndexing/AndroidStudio for more information.
      */
     private GoogleApiClient client;
-    private GridView gridview;
-    private ProgressBar spinner;
+    @ViewById(R.id.gridview)
+    GridView gridview;
+    @ViewById(R.id.progressBar1)
+    ProgressBar spinner;
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+    @OnActivityResult(1234)
+    @AfterViews
+    public void carregarInformacoes() {
+        //Adicionar uma actionbar personalizada
+        ActionBar actionBar = getSupportActionBar();
+        actionBar.setDisplayShowCustomEnabled(true);
+        actionBar.setDisplayOptions(ActionBar.DISPLAY_SHOW_CUSTOM);
+        actionBar.setCustomView(R.layout.action_bar);
+        //mostrar o spinner de carregamento
 
-        spinner = (ProgressBar)findViewById(R.id.progressBar1);
         spinner.setVisibility(View.VISIBLE);
+        if(verificarInternet()){
+            requisitarJsonSeries();
+        } else {
 
-        gridview = (GridView) findViewById(R.id.gridview);
-
-        carregarInformacoes();
+            AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(MainActivity.this);
+            alertDialogBuilder
+                    .setMessage("Você não está conectado, por favor, verifique sua conexão.")
+                    .setCancelable(false)
+                    .setPositiveButton("Configurações",
+                            new DialogInterface.OnClickListener() {
+                                public void onClick(DialogInterface dialog, int id) {
+                                    Intent intent = new Intent(Settings.ACTION_WIRELESS_SETTINGS );
+                                    startActivityForResult(intent,1234);
+                                    dialog.cancel();
+                                }
+                            });
+            alertDialogBuilder.setNegativeButton("Cancelar",
+                    new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int id) {
+                            dialog.cancel();
+                            finish();
+                        }
+                    });
+            AlertDialog alert = alertDialogBuilder.create();
+            alert.show();
+        }
 
         // ATTENTION: This was auto-generated to implement the App Indexing API.
         // See https://g.co/AppIndexing/AndroidStudio for more information.
         client = new GoogleApiClient.Builder(this).addApi(AppIndex.API).build();
-
     }
 
-    public void carregarInformacoes() {
-        // Instanciar o volley.
-        RequestQueue queue = Volley.newRequestQueue(this);
+    private boolean verificarInternet() {
+        ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        //testar se está conectado a alguma rede
+        return connectivityManager.getActiveNetworkInfo() != null && connectivityManager.getActiveNetworkInfo().isConnected();
+    }
+
+    @Background
+    public void requisitarJsonSeries(){
         String url = "https://api-v2launch.trakt.tv/shows/popular?extended=images";
 
         // Requisitar o JSON
@@ -67,7 +111,7 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onResponse(JSONArray response) {
                         //Passa o JSON para fazer conversao e carregar o grid
-                        carregaResposta(response.toString());
+                        mostrarTela(converterJson(response.toString()));
                     }
                 }, new Response.ErrorListener() {
             @Override
@@ -87,14 +131,20 @@ public class MainActivity extends AppCompatActivity {
             }
         };
         // Adicionar a requisicao a fila
-        queue.add(jsonRequest);
+        Singleton.getInstance().addToRequestQueue(jsonRequest);
     }
 
-    public void carregaResposta(String jsonResponse) {
+    @Background
+    public Series[] converterJson(String jsonResponse) {
         Gson converter = new Gson();
         Type type = new TypeToken<Series[]>(){}.getType();
         Series[] series = converter.fromJson(jsonResponse, type);
 
+        return series;
+
+    }
+    @UiThread
+    public void mostrarTela(Series[] series){
         gridview.setAdapter(new ImageAdapter(MainActivity.this, series));
         spinner.setVisibility(View.GONE);
     }

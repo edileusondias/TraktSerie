@@ -6,7 +6,7 @@ import android.widget.TextView;
 /**
  * Created by Eddy on 2/27/2016.
  */
-public class GridAdapter {
+public class GridItem {
     private TextView descricao;
     private ImageView imagem;
 

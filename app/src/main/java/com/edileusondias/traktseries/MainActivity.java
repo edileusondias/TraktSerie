@@ -134,7 +134,6 @@ public class MainActivity extends AppCompatActivity {
         Singleton.getInstance().addToRequestQueue(jsonRequest);
     }
 
-    @Background
     public Series[] converterJson(String jsonResponse) {
         Gson converter = new Gson();
         Type type = new TypeToken<Series[]>(){}.getType();
